@@ -1,0 +1,6 @@
+{
+  "name": "Odoo Procurement Assistant",
+  "description": "A Procurement Review module that helps purchasing teams reduce unnecessary spending before purchase orders are approved. The system reviews inventory availability, supplier performance, demand patterns, and financial impact to support better procurement decisions while fitting naturally into existing Odoo workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
