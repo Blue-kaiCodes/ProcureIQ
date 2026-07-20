@@ -105,9 +105,6 @@ Upcoming improvements include:
 
 ---
 
-## Screenshots
-
-> Screenshots will be added soon.
 
 ---
 
