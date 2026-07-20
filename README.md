@@ -106,8 +106,6 @@ Upcoming improvements include:
 ---
 
 
----
-
 ## Roadmap
 
 - [x] Core Dashboard
