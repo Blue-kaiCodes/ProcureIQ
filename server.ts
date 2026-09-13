@@ -109,11 +109,7 @@ function getGemini(): GoogleGenAI | null {
   return geminiClient;
 }
 
-// ==========================================
-// AUTHENTICATION & ONBOARDING API ENDPOINTS
-// ==========================================
-
-// 1. Get current authenticated user details and company workspace info
+// Auth & workspace
 app.get("/api/auth/me", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser) {
@@ -145,7 +141,7 @@ app.get("/api/auth/me", authenticateUser, async (req: any, res: any) => {
   }
 });
 
-// 2. Register Company Onboarding Flow (inserts company and sets up administrator)
+// Register Company Onboarding Flow
 app.post("/api/auth/register-company", async (req, res) => {
   try {
     const { company, admin } = req.body;
@@ -153,13 +149,11 @@ app.post("/api/auth/register-company", async (req, res) => {
       return res.status(400).json({ error: "Missing required onboarding parameters." });
     }
 
-    // Check if company already exists
     const [existingComp] = await db.select().from(companies).where(eq(companies.id, company.id));
     if (existingComp) {
       return res.status(400).json({ error: `A company workspace with key '${company.id}' already exists.` });
     }
 
-    // 1. Create company record
     await db.insert(companies).values({
       id: company.id,
       name: company.name,
@@ -173,7 +167,6 @@ app.post("/api/auth/register-company", async (req, res) => {
       website: company.website || null,
     });
 
-    // 2. Create local administrator profile
     const [existingUserByUid] = await db.select().from(users).where(eq(users.id, admin.uid));
     const [existingUserByEmail] = await db.select().from(users).where(eq(users.email, admin.email));
     const existingUser = existingUserByUid || existingUserByEmail;
@@ -192,13 +185,12 @@ app.post("/api/auth/register-company", async (req, res) => {
         id: admin.uid,
         email: admin.email,
         name: admin.name,
-        role: "owner", // Owner of this company
+        role: "owner",
         department: admin.department || "Operations",
         companyId: company.id,
       });
     }
 
-    // 3. Seed workspace baseline data (Suppliers, stock, requests)
     await seedCompanyWorkspace(company.id);
 
     res.json({ success: true, message: "Workspace provisioned and administrator registered successfully." });
@@ -208,7 +200,7 @@ app.post("/api/auth/register-company", async (req, res) => {
   }
 });
 
-// 3. Invite a new user (owner / admin only) and create a REAL Firebase account immediately
+// Invite a new user and create an account
 app.post("/api/auth/invite", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser || (req.dbUser.role !== "owner" && req.dbUser.role !== "admin")) {
@@ -220,7 +212,6 @@ app.post("/api/auth/invite", authenticateUser, async (req: any, res: any) => {
       return res.status(400).json({ error: "Missing required invitation parameters: email, role, department, name are required." });
     }
 
-    // 1. Create database profile directly linked to the administrator's company
     const [existingDbUser] = await db.select().from(users).where(eq(users.email, email));
     const randomUid = existingDbUser?.id || `user-${Math.random().toString(36).substr(2, 9)}`;
     
@@ -235,7 +226,6 @@ app.post("/api/auth/invite", authenticateUser, async (req: any, res: any) => {
       });
       console.log(`[DEMO-AUTH] Created database profile for employee: ${email}`);
     } else {
-      // Update existing database user to associate them with the current company and role
       await db.update(users).set({
         name: name,
         role: role,
@@ -245,7 +235,6 @@ app.post("/api/auth/invite", authenticateUser, async (req: any, res: any) => {
       console.log(`[DEMO-AUTH] Updated existing database profile for employee: ${email}`);
     }
 
-    // 2. Keep an invitation log/record in invitations table for tracking
     const inviteToken = `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
@@ -256,7 +245,7 @@ app.post("/api/auth/invite", authenticateUser, async (req: any, res: any) => {
       email,
       role,
       department,
-      status: "accepted", // Set status directly to accepted because the account is fully active
+      status: "accepted",
       expiresAt,
     });
 
@@ -272,7 +261,7 @@ app.post("/api/auth/invite", authenticateUser, async (req: any, res: any) => {
   }
 });
 
-// 4. Retrieve Invitation details publicly
+// Retrieve invitation details
 app.get("/api/auth/invitation/:token", async (req, res) => {
   try {
     const { token } = req.params;
@@ -298,7 +287,7 @@ app.get("/api/auth/invitation/:token", async (req, res) => {
   }
 });
 
-// 5. Accept invitation and register joining user profile
+// Accept invitation and register joining user profile
 app.post("/api/auth/accept-invite", async (req, res) => {
   try {
     const { token, uid, name, email } = req.body;
@@ -311,7 +300,6 @@ app.post("/api/auth/accept-invite", async (req, res) => {
       return res.status(400).json({ error: "Invitation is expired, void, or invalid." });
     }
 
-    // Create user profile linked to the company
     await db.insert(users).values({
       id: uid,
       email: email,
@@ -321,7 +309,6 @@ app.post("/api/auth/accept-invite", async (req, res) => {
       companyId: invite.companyId,
     });
 
-    // Mark invitation as accepted
     await db.update(invitations).set({ status: "accepted" }).where(eq(invitations.id, token));
 
     res.json({ success: true, message: "Invitation accepted. Profile created successfully." });
@@ -331,7 +318,7 @@ app.post("/api/auth/accept-invite", async (req, res) => {
   }
 });
 
-// 6. Update user profile settings
+// Update user profile settings
 app.post("/api/auth/update-profile", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser) {
@@ -354,11 +341,7 @@ app.post("/api/auth/update-profile", authenticateUser, async (req: any, res: any
   }
 });
 
-// ==========================================
-// TEAM MANAGEMENT API ENDPOINTS
-// ==========================================
-
-// 1. Get all company team members and pending invitations
+// Team management
 app.get("/api/team", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser) {
@@ -386,7 +369,7 @@ app.get("/api/team", authenticateUser, async (req: any, res: any) => {
   }
 });
 
-// 2. Toggle user active/disabled status (Enable/Disable)
+// Toggle user active/disabled status
 app.post("/api/team/members/:id/toggle-status", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser || (req.dbUser.role !== "owner" && req.dbUser.role !== "admin")) {
@@ -423,7 +406,7 @@ app.post("/api/team/members/:id/toggle-status", authenticateUser, async (req: an
   }
 });
 
-// 3. Assign role and/or department to a team member
+// Assign role and department to a team member
 app.post("/api/team/members/:id/role", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser || (req.dbUser.role !== "owner" && req.dbUser.role !== "admin")) {
@@ -452,7 +435,6 @@ app.post("/api/team/members/:id/role", authenticateUser, async (req: any, res: a
       return res.status(403).json({ error: "Access Denied: Only the owner can modify their own role." });
     }
 
-    // Update member role/department
     await db.update(users).set({
       role: role,
       department: department
@@ -465,7 +447,7 @@ app.post("/api/team/members/:id/role", authenticateUser, async (req: any, res: a
   }
 });
 
-// 4. Delete/Remove a team member
+// Remove a team member
 app.delete("/api/team/members/:id", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser || (req.dbUser.role !== "owner" && req.dbUser.role !== "admin")) {
@@ -502,7 +484,7 @@ app.delete("/api/team/members/:id", authenticateUser, async (req: any, res: any)
   }
 });
 
-// ==========================================
+// Core ERP dataset
 app.get("/api/data", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser) {
@@ -1770,11 +1752,9 @@ app.post("/api/requests/:id/receive", authenticateUser, async (req: any, res: an
   }
 });
 
-// ==========================================
-// ODOO ERP XML-RPC LIVE CONNECTOR ENDPOINTS
-// ==========================================
+// Odoo ERP XML-RPC Connector Endpoints
 
-// 1. Test Live XML-RPC Connection to Odoo ERP
+// Test live XML-RPC connection to Odoo ERP
 app.post("/api/odoo/test-connection", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser) return res.status(403).json({ error: "Access Denied." });
@@ -1791,7 +1771,7 @@ app.post("/api/odoo/test-connection", authenticateUser, async (req: any, res: an
   }
 });
 
-// 2. Bi-directional Odoo ERP XML-RPC Sync
+// Bi-directional Odoo ERP XML-RPC sync
 app.post("/api/odoo/sync", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser) return res.status(403).json({ error: "Access Denied." });
@@ -1899,11 +1879,9 @@ app.post("/api/odoo/sync", authenticateUser, async (req: any, res: any) => {
   }
 });
 
-// ==========================================
-// AUTOMATED PURCHASE ORDER PDF & EMAIL DISPATCH
-// ==========================================
+// Purchase Order PDF & Email Dispatch
 
-// 3. Generate Purchase Order PDF
+// Generate Purchase Order PDF
 app.post("/api/requests/:id/generate-po-pdf", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser) return res.status(403).json({ error: "Access Denied." });
@@ -1965,7 +1943,7 @@ app.post("/api/requests/:id/generate-po-pdf", authenticateUser, async (req: any,
   }
 });
 
-// 4. Automated Purchase Order Email Dispatch
+// Automated Purchase Order Email Dispatch
 app.post("/api/requests/:id/dispatch-email", authenticateUser, async (req: any, res: any) => {
   try {
     if (!req.dbUser) return res.status(403).json({ error: "Access Denied." });

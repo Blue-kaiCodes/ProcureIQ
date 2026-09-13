@@ -42,7 +42,6 @@ export default function GlobalSearchOverlay({
     );
   };
 
-  // 1. Filter Requisitions
   const matchedRequests = requests.filter(
     (r) =>
       r.id.toLowerCase().includes(q) ||
@@ -51,14 +50,12 @@ export default function GlobalSearchOverlay({
       r.department.toLowerCase().includes(q)
   );
 
-  // 2. Filter Suppliers
   const matchedSuppliers = suppliers.filter(
     (s) =>
       s.id.toLowerCase().includes(q) ||
       s.name.toLowerCase().includes(q)
   );
 
-  // 3. Filter Inventory / Products
   const matchedInventory = inventory.filter(
     (item) =>
       item.id.toLowerCase().includes(q) ||
@@ -66,7 +63,6 @@ export default function GlobalSearchOverlay({
       item.warehouse.toLowerCase().includes(q)
   );
 
-  // Check if we have any matches
   const hasMatches =
     matchedRequests.length > 0 ||
     matchedSuppliers.length > 0 ||

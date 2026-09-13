@@ -887,18 +887,15 @@ export default function App() {
   // Registry interactive filtering
   const sortedAndFilteredRequests = [...requests]
     .filter(r => {
-      // 1. Term matches
       const matchesSearch = r.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             r.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             r.requestedBy.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // 2. Dropdown matches
       const matchesDept = filterDepartment === "all" || r.department === filterDepartment;
       const matchesRisk = filterRisk === "all" || r.riskLevel === filterRisk;
       const matchesStatus = filterStatus === "all" || r.status === filterStatus;
       const matchesPriority = filterPriority === "all" || r.priority === filterPriority;
       
-      // 3. Price boundaries
       const matchesMinAmt = filterMinAmount === "" || r.totalAmount >= Number(filterMinAmount);
       const matchesMaxAmt = filterMaxAmount === "" || r.totalAmount <= Number(filterMaxAmount);
 
@@ -1136,7 +1133,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ---------------- Odoo Upper Brand Header ---------------- */}
       <header className="h-[46px] bg-[#714B67] flex items-center justify-between px-4 shrink-0 text-white z-40 relative">
         <div className="flex items-center gap-5">
           <button className="p-1 hover:bg-[#5f3f56] rounded transition-colors mr-1 cursor-pointer" title="Applications Menu">
@@ -1386,7 +1382,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* ---------------- Odoo Sub-Control Bar ---------------- */}
       <section className="h-[44px] bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 z-30 shadow-3xs">
         <div className="flex items-center gap-2 text-[13px]">
           <span className="text-gray-400 font-medium">Odoo Procurement</span>
@@ -1506,10 +1501,8 @@ export default function App() {
         </div>
       </section>
 
-      {/* ----------------- Core Content Work Area ----------------- */}
       <div className="flex-1 flex overflow-hidden relative">
 
-        {/* ----------------- TAB 1: DASHBOARD ----------------- */}
         {activeTab === "dashboard" && (
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             
@@ -1674,7 +1667,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ----------------- TAB 2: PURCHASE REQUESTS (REGISTRY) ----------------- */}
         {activeTab === "requisitions" && (
           requests.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white w-full animate-fade-in">
@@ -2425,7 +2417,6 @@ export default function App() {
     )
   )}
 
-        {/* ----------------- TAB 3: AUDIT WORKBENCH (INTERACTIVE REVIEW) ----------------- */}
         {activeTab === "review" && (
           requests.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white w-full animate-fade-in">
@@ -2755,7 +2746,6 @@ export default function App() {
         )
       )}
 
-        {/* ----------------- TAB 4: SUPPLIERS ----------------- */}
         {activeTab === "suppliers" && (
           suppliers.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white w-full animate-fade-in">
@@ -2968,7 +2958,6 @@ export default function App() {
         )
       )}
 
-        {/* ----------------- TAB 5: INVENTORY ----------------- */}
         {activeTab === "inventory" && (
           inventory.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white w-full animate-fade-in">
@@ -3278,7 +3267,6 @@ export default function App() {
         )
       )}
 
-        {/* ----------------- TAB 6: REPORTS ----------------- */}
         {activeTab === "reports" && (
           requests.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white w-full animate-fade-in">
@@ -3400,7 +3388,6 @@ export default function App() {
         )
       )}
 
-        {/* ----------------- TAB 7: SETTINGS ----------------- */}
         {activeTab === "settings" && (
           <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-3xl animate-fade-in">
             
@@ -3973,7 +3960,6 @@ export default function App() {
 
       </div>
 
-      {/* ----------------- DIALOG 1: CREATE REQUISITION FORM ----------------- */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-3xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-300 rounded shadow-lg max-w-xl w-full p-6 space-y-4">
@@ -4091,7 +4077,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ----------------- DIALOG 2: INTERACTIVE WORKFLOW DIALOG ----------------- */}
       {isApprovalDialogOpen && selectedRequest && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-3xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-300 rounded shadow-lg max-w-lg w-full p-6 space-y-4">
@@ -4191,7 +4176,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ----------------- DIALOG: EMAIL DISPATCH MODAL ----------------- */}
       {isEmailDispatchOpen && selectedRequest && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-3xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-gray-300 rounded shadow-lg max-w-md w-full p-6 space-y-4">

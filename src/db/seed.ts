@@ -115,7 +115,6 @@ export async function seedCompanyWorkspace(companyId: string) {
 
 export async function seedDatabase() {
   try {
-    // 1. Seed Demo Company
     const [demoCompanyCount] = await db.select({ value: count() }).from(companies).where(eq(companies.id, "DEMO-COMP"));
     if (demoCompanyCount.value === 0) {
       await db.insert(companies).values({
@@ -140,7 +139,6 @@ export async function seedDatabase() {
 
     console.log("Seeding database (simulation users only)...");
 
-    // 2. Seed Users tied to Demo Company
     const defaultUsers = [
       {
         id: "buyer-uid",
