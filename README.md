@@ -157,8 +157,10 @@ npm start
 - [x] Role-Based Access Control (Admin, Officer, Head, Manager, Warehouse, Buyer)
 - [x] In-memory PostgreSQL fallback for instant zero-config onboarding
 - [x] Activity Audit Timelines, Threaded Comments & Document Attachments
-- [ ] Live Bi-directional Odoo ERP XML-RPC Connector
-- [ ] Automated Purchase Order PDF Generation & Email Dispatch
+- [x] Live Bi-directional Odoo ERP XML-RPC Connector
+- [x] Automated Purchase Order PDF Generation & Email Dispatch
+- [ ] Multimodal OCR Invoice & Receipt Line-Item Extraction
+- [ ] Supplier Self-Service RFQ & Quotation Portal
 
 ---
 

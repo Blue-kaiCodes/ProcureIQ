@@ -325,6 +325,118 @@ export default function App() {
   const [editRole, setEditRole] = useState("buyer");
   const [editDept, setEditDept] = useState("Purchasing");
 
+  // Live Odoo XML-RPC & PO PDF/Email Dispatch States
+  const [odooConfig, setOdooConfig] = useState({
+    url: "https://demo.odoo.com",
+    db: "odoo",
+    username: "admin@company.com",
+    apiKey: "odoo_api_key_demo",
+  });
+  const [odooStatus, setOdooStatus] = useState<string | null>(null);
+  const [isOdooTesting, setIsOdooTesting] = useState(false);
+  const [isEmailDispatchOpen, setIsEmailDispatchOpen] = useState(false);
+  const [emailRecipientInput, setEmailRecipientInput] = useState("");
+
+  const handleTestOdooConnection = async () => {
+    try {
+      setIsOdooTesting(true);
+      const res = await fetch("/api/odoo/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(odooConfig),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOdooStatus(data.message);
+        showNotification(data.message, "success");
+      } else {
+        setOdooStatus(data.message);
+        showNotification(data.message || "Connection failed.", "error");
+      }
+    } catch (err) {
+      showNotification("Failed to reach Odoo XML-RPC endpoint.", "error");
+    } finally {
+      setIsOdooTesting(false);
+    }
+  };
+
+  const handleOdooSync = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/odoo/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(odooConfig),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(
+          `Bi-directional sync complete: ${data.suppliersSynced} vendors, ${data.productsSynced} products, ${data.ordersPushed} POs updated.`,
+          "success"
+        );
+        await fetchData();
+      } else {
+        showNotification(data.error || "Sync failed.", "error");
+      }
+    } catch (err) {
+      showNotification("Failed to sync with Odoo ERP.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDownloadPoPdf = async (reqId?: string) => {
+    const targetId = reqId || selectedRequest?.id;
+    if (!targetId) return;
+    try {
+      setIsLoading(true);
+      const res = await fetch(`/api/requests/${targetId}/generate-po-pdf`, { method: "POST" });
+      const data = await res.json();
+      if (data.success && data.dataUri) {
+        const link = document.createElement("a");
+        link.href = data.dataUri;
+        link.download = data.fileName || `${targetId}-PurchaseOrder.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showNotification(`Purchase Order PDF generated & downloaded (${data.fileName})`, "success");
+        await fetchData();
+      } else {
+        showNotification(data.error || "Failed to generate Purchase Order PDF.", "error");
+      }
+    } catch (err) {
+      showNotification("Failed to generate Purchase Order PDF.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDispatchPoEmail = async (reqId?: string, recipient?: string) => {
+    const targetId = reqId || selectedRequest?.id;
+    if (!targetId) return;
+    try {
+      setIsLoading(true);
+      const res = await fetch(`/api/requests/${targetId}/dispatch-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientEmail: recipient || emailRecipientInput }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification(data.message || "PO dispatched to vendor via email.", "success");
+        setIsEmailDispatchOpen(false);
+        await fetchData();
+      } else {
+        showNotification(data.error || "Failed to dispatch email.", "error");
+      }
+    } catch (err) {
+      showNotification("Failed to dispatch PO email.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
   const fetchTeamData = async () => {
     try {
       setIsTeamLoading(true);
@@ -2483,12 +2595,36 @@ export default function App() {
                           )}
 
                           {selectedRequest.status === RequestStatus.PO_CREATED && (
-                            <button
-                              onClick={() => triggerWorkflowDialog("completed")}
-                              className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded transition-all cursor-pointer shadow-xs"
-                            >
-                              Deliver Requisition
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleDownloadPoPdf(selectedRequest.id)}
+                                className="px-3 py-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
+                                title="Download Purchase Order PDF"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                Download PO (PDF)
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const sup = suppliers.find((s) => s.id === selectedRequest.supplierId);
+                                  setEmailRecipientInput(
+                                    sup ? `${sup.name.toLowerCase().replace(/[^a-z0-9]/g, "")}@supplier.com` : "vendor@supplier.com"
+                                  );
+                                  setIsEmailDispatchOpen(true);
+                                }}
+                                className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
+                                title="Email PO to Vendor"
+                              >
+                                <Mail className="w-3.5 h-3.5" />
+                                Email PO
+                              </button>
+                              <button
+                                onClick={() => triggerWorkflowDialog("completed")}
+                                className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded transition-all cursor-pointer shadow-xs"
+                              >
+                                Deliver Requisition
+                              </button>
+                            </div>
                           )}
                         </>
                       )}
@@ -3745,35 +3881,89 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="p-4 bg-gray-50 border border-gray-150 rounded space-y-3 flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">ERP Baseline Seeding</h4>
-                    <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-                      Establishes a secure connection with the core Odoo ERP database. Synchronizes standard enterprise vendors, inventory SKU balances, and pre-negotiated base pricing agreements.
-                    </p>
+                <div className="p-4 bg-gray-50 border border-gray-150 rounded space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Database className="w-4 h-4 text-[#00A09D]" />
+                        <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                          Live Bi-Directional Odoo ERP XML-RPC Connector
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                        Direct XML-RPC integration protocol (`/xmlrpc/2/common` & `/xmlrpc/2/object`). Synchronizes vendors, warehouse inventory, and exports approved purchase requisitions into Odoo `purchase.order` records.
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 text-[10px] font-bold rounded-xs flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span>
+                      XML-RPC Ready
+                    </span>
                   </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        setIsLoading(true);
-                        const res = await fetch("/api/import/connect-odoo", { method: "POST" });
-                        const data = await res.json();
-                        if (data.success) {
-                          showNotification("Secure connection established. Odoo ERP databases synced.", "success");
-                          await fetchData();
-                        } else {
-                          showNotification(data.error || "Failed to sync ERP databases.", "error");
-                        }
-                      } catch (err) {
-                        showNotification("Failed to connect to ERP server.", "error");
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
-                    className="w-full py-1.5 bg-[#00A09D] hover:bg-[#008f8c] text-white font-bold text-xs rounded transition-all cursor-pointer text-center font-semibold"
-                  >
-                    Sync Odoo ERP Database
-                  </button>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block text-gray-500 font-semibold mb-1 text-[11px]">Odoo Server URL:</label>
+                      <input
+                        type="text"
+                        value={odooConfig.url}
+                        onChange={(e) => setOdooConfig({ ...odooConfig, url: e.target.value })}
+                        placeholder="https://my-company.odoo.com"
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-gray-700 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-500 font-semibold mb-1 text-[11px]">Database Name:</label>
+                      <input
+                        type="text"
+                        value={odooConfig.db}
+                        onChange={(e) => setOdooConfig({ ...odooConfig, db: e.target.value })}
+                        placeholder="odoo"
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-gray-700 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-500 font-semibold mb-1 text-[11px]">Username / Email:</label>
+                      <input
+                        type="text"
+                        value={odooConfig.username}
+                        onChange={(e) => setOdooConfig({ ...odooConfig, username: e.target.value })}
+                        placeholder="admin@company.com"
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-gray-700 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-500 font-semibold mb-1 text-[11px]">API Key / Password:</label>
+                      <input
+                        type="password"
+                        value={odooConfig.apiKey}
+                        onChange={(e) => setOdooConfig({ ...odooConfig, apiKey: e.target.value })}
+                        placeholder="••••••••••••"
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-gray-700 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {odooStatus && (
+                    <div className="p-2.5 bg-white border border-gray-200 rounded text-[11px] text-gray-600 font-mono">
+                      {odooStatus}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleTestOdooConnection}
+                      disabled={isOdooTesting}
+                      className="flex-1 py-1.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-bold text-xs rounded transition-all cursor-pointer text-center"
+                    >
+                      {isOdooTesting ? "Testing XML-RPC..." : "Test XML-RPC Connection"}
+                    </button>
+                    <button
+                      onClick={handleOdooSync}
+                      className="flex-1 py-1.5 bg-[#00A09D] hover:bg-[#008f8c] text-white font-bold text-xs rounded transition-all cursor-pointer text-center"
+                    >
+                      Bi-directional Sync Now
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3995,6 +4185,63 @@ export default function App() {
                 className="px-4 py-1.5 bg-[#714B67] hover:bg-[#5f3f56] text-white font-bold rounded cursor-pointer"
               >
                 Confirm State Transition
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------- DIALOG: EMAIL DISPATCH MODAL ----------------- */}
+      {isEmailDispatchOpen && selectedRequest && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-3xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-300 rounded shadow-lg max-w-md w-full p-6 space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+              <h3 className="text-sm font-bold text-gray-900 uppercase flex items-center gap-2">
+                <Mail className="w-4 h-4 text-indigo-600" />
+                Dispatch PO via Email
+              </h3>
+              <button onClick={() => setIsEmailDispatchOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-gray-500 font-semibold mb-1">Purchase Order ID:</label>
+                <input
+                  type="text"
+                  disabled
+                  value={selectedRequest.id}
+                  className="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-gray-700 font-bold font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-500 font-semibold mb-1">Vendor Contact Email:</label>
+                <input
+                  type="email"
+                  value={emailRecipientInput}
+                  onChange={(e) => setEmailRecipientInput(e.target.value)}
+                  placeholder="vendor@supplier.com"
+                  className="w-full px-3 py-1.5 border border-gray-200 rounded focus:border-[#714B67] focus:outline-hidden"
+                />
+              </div>
+              <div className="p-2.5 bg-indigo-50/60 border border-indigo-100 rounded text-[11px] text-indigo-700 space-y-1">
+                <p className="font-semibold">📎 Auto-Attached: {selectedRequest.id}-PurchaseOrder.pdf</p>
+                <p className="text-indigo-600/80">Includes official item specifications, line prices, delivery terms, and ProcureIQ compliance watermark.</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                onClick={() => setIsEmailDispatchOpen(false)}
+                className="px-3 py-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded font-semibold text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDispatchPoEmail(selectedRequest.id, emailRecipientInput)}
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded text-xs cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                Confirm Dispatch
               </button>
             </div>
           </div>
